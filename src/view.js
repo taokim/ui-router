@@ -1,5 +1,5 @@
-$View.$inject = ['$rootScope', '$templateFactory', '$q'];
-function $View(   $rootScope,   $templateFactory,   $q) {
+$View.$inject = ['$rootScope', '$templateFactory', '$q', '$injector'];
+function $View(   $rootScope,   $templateFactory,   $q,   $injector) {
 
   var views = {}, queued = {}, waiting = [];
 
@@ -36,6 +36,13 @@ function $View(   $rootScope,   $templateFactory,   $q) {
     }
   }
 
+  function resolveController(opts) {
+    if (isFunction(opts.controllerProvider)) {
+      return $injector.invoke(opts.controllerProvider, null, opts.locals);
+    }
+    return opts.controller;
+  }
+
   /**
    * Uses `$templateFactory` to load a template from a configuration object into a named view.
    *
@@ -49,16 +56,17 @@ function $View(   $rootScope,   $templateFactory,   $q) {
    */
   this.load = function load (name, options) {
     var $template, $parent, defaults = {
-      template:         undefined,
-      templateUrl:      undefined,
-      templateProvider: undefined,
-      controller:       null,
-      context:          null,
-      parent:           null,
-      locals:           null,
-      notify:           true,
-      async:            true,
-      params:           {}
+      template:           undefined,
+      templateUrl:        undefined,
+      templateProvider:   undefined,
+      controller:         null,
+      controllerProvider: null,
+      context:            null,
+      parent:             null,
+      locals:             null,
+      notify:             true,
+      async:              true,
+      params:             {}
     };
     options = extend(defaults, options);
 
@@ -89,7 +97,7 @@ function $View(   $rootScope,   $templateFactory,   $q) {
       tick(fqn, options.context);
       return push(fqn, options.async, {
         $template:   results[0],
-        $controller: options.controller,
+        $controller: resolveController(options),
         $locals:     options.locals,
         $context:    options.context
       });

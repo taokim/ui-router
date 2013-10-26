@@ -63,10 +63,13 @@ function $StateProvider(   $urlRouterProvider,   $urlMatcherFactory,           $
     // is also a good time to resolve view names to absolute names, so everything is a
     // straight lookup at link time.
     views: function(state) {
-      var views = {}, keys = ['templateProvider', 'templateUrl', 'template', 'controller', 'notify', 'async'];
+      var views = {}, viewKeys = [
+        'templateProvider', 'templateUrl', 'template', 'controller', 'controllerProvider', 'notify', 'async'
+      ];
 
-      forEach(isDefined(state.views) ? state.views : { "$unnamed$": state }, function (view, name) {
-        views[name] = filterByKeys(keys, view);
+      forEach(state.views || { "$default": state }, function (view, name) {
+        var config = filterByKeys(viewKeys, view);
+        if (keys(config).length > 0) views[name] = config;
       });
       return views;
     },
@@ -267,16 +270,14 @@ function $StateProvider(   $urlRouterProvider,   $urlMatcherFactory,           $
 
     $state.transitionTo = function transitionTo(to, toParams, options) {
       toParams = toParams || {};
-      options = extend({
-        location: true, inherit: false, relative: null, notify: true, reload: false, $retry: false
-      }, options || {});
+      var opts = extend({}, { location: true, inherit: false, relative: null, notify: true, reload: false, $retry: false }, options);
 
       var from = $state.$current, fromParams = $state.params, fromPath = from.path;
-      var evt, toState = findState(to, options.relative);
+      var evt, toState = findState(to, opts.relative);
 
       if (!isDefined(toState)) {
         // Broadcast not found event and abort the transition if prevented
-        var redirect = { to: to, toParams: toParams, options: options };
+        var redirect = { to: to, toParams: toParams, options: opts };
         evt = $rootScope.$broadcast('$stateNotFound', redirect, from.self, fromParams);
         if (evt.defaultPrevented) {
           syncUrl();
@@ -285,7 +286,7 @@ function $StateProvider(   $urlRouterProvider,   $urlMatcherFactory,           $
 
         // Allow the handler to return a promise to defer state lookup retry
         if (evt.retry) {
-          if (options.$retry) {
+          if (opts.$retry) {
             syncUrl();
             return TransitionFailed;
           }
@@ -305,15 +306,15 @@ function $StateProvider(   $urlRouterProvider,   $urlMatcherFactory,           $
         // (handles either redirect changed or state lazy-definition)
         to = redirect.to;
         toParams = redirect.toParams;
-        options = redirect.options;
-        toState = findState(to, options.relative);
+        opts = redirect.options;
+        toState = findState(to, opts.relative);
         if (!isDefined(toState)) {
-          if (options.relative) throw new Error("Could not resolve '" + to + "' from state '" + options.relative + "'");
+          if (opts.relative) throw new Error("Could not resolve '" + to + "' from state '" + opts.relative + "'");
           throw new Error("No such state '" + to + "'");
         }
       }
       if (toState['abstract']) throw new Error("Cannot transition to abstract state '" + to + "'");
-      if (options.inherit) toParams = inheritParams($stateParams, toParams || {}, $state.$current, toState);
+      if (opts.inherit) toParams = inheritParams($stateParams, toParams || {}, $state.$current, toState);
       to = toState;
 
       var toPath = to.path;
@@ -347,7 +348,7 @@ function $StateProvider(   $urlRouterProvider,   $urlMatcherFactory,           $
       toParams = normalize(to.params, toParams || {});
 
       // Broadcast start event and cancel the transition if requested
-      if (options.notify) {
+      if (opts.notify) {
         evt = $rootScope.$broadcast('$stateChangeStart', to.self, toParams, from.self, fromParams);
         if (evt.defaultPrevented) {
           syncUrl();
@@ -386,7 +387,7 @@ function $StateProvider(   $urlRouterProvider,   $urlMatcherFactory,           $
           if (exiting.views) {
             var exitingViews = $view.find(keys(exiting.views), exiting.parent);
 
-            for (var i = exitingViews.length; i <= 0; i--) {
+            for (var i = exitingViews.length; i >= 0; i--) {
               if (arraySearch(keptViews, exitingViews[i]) === -1) $view.reset(exitingViews[i], null);
             }
           }
@@ -414,15 +415,15 @@ function $StateProvider(   $urlRouterProvider,   $urlMatcherFactory,           $
 
         // Update $location
         var toNav = to.navigable;
-        if (options.location && toNav) {
+        if (opts.location && toNav) {
           $location.url(toNav.url.format(toNav.locals.globals.$stateParams));
 
-          if (options.location === 'replace') {
+          if (opts.location === 'replace') {
             $location.replace();
           }
         }
 
-        if (options.notify) {
+        if (opts.notify) {
           $rootScope.$broadcast('$stateChangeSuccess', to.self, toParams, from.self, fromParams);
         }
         currentLocation = $location.url();

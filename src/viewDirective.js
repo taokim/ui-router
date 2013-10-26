@@ -14,7 +14,7 @@ function $ViewDirective(   $state,   $view,   $compile,   $controller,   $inject
     compile: function (element, attr, transclude) {
       return function(scope, element, attr) {
         var viewScope, viewConfig, unregister,
-            name = attr[directive.name] || attr.name || '$unnamed$',
+            name = attr[directive.name] || attr.name || '$default',
             onloadExp = attr.onload || '',
             animate = isDefined($animator) && $animator(scope, attr),
             initialView = transclude(scope);
